@@ -69,9 +69,11 @@ const SCHEMA = [
 let ready: Promise<Client> | undefined
 
 async function init(): Promise<Client> {
+  // Acepta los nombres que crea la integración de Turso en Vercel además de los propios
+  const env = process.env
   const client = createClient({
-    url: process.env.DATABASE_URL ?? 'file:local.db',
-    authToken: process.env.DATABASE_AUTH_TOKEN,
+    url: env.DATABASE_URL ?? env.TURSO_DATABASE_URL ?? 'file:local.db',
+    authToken: env.DATABASE_AUTH_TOKEN ?? env.DATABASE_TOKEN ?? env.TURSO_AUTH_TOKEN ?? env.TURSO_DATABASE_AUTH_TOKEN,
   })
   await client.batch(SCHEMA, 'write')
 
