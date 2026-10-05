@@ -10,7 +10,7 @@ const MAX_AGE_DAYS = 7
 function key() {
   const secret = process.env.SESSION_SECRET
   if (!secret || secret.length < 32) {
-    throw new Error('SESSION_SECRET debe tener al menos 32 caracteres')
+    throw new Error('Falta SESSION_SECRET en las variables de entorno (o tiene menos de 32 caracteres)')
   }
   return new TextEncoder().encode(secret)
 }

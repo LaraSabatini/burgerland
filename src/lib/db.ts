@@ -71,8 +71,15 @@ let ready: Promise<Client> | undefined
 async function init(): Promise<Client> {
   // Acepta los nombres que crea la integración de Turso en Vercel además de los propios
   const env = process.env
+  const url = env.DATABASE_URL ?? env.TURSO_DATABASE_URL ?? 'file:local.db'
+  if (env.VERCEL && url.startsWith('file:')) {
+    throw new Error(
+      'No se encontró la base de datos: falta DATABASE_URL (o TURSO_DATABASE_URL) en las variables de entorno de Vercel. ' +
+        `Variables disponibles relacionadas: ${Object.keys(env).filter((k) => /URL|TOKEN|TURSO|DATABASE|STORAGE/.test(k)).join(', ') || 'ninguna'}`,
+    )
+  }
   const client = createClient({
-    url: env.DATABASE_URL ?? env.TURSO_DATABASE_URL ?? 'file:local.db',
+    url,
     authToken: env.DATABASE_AUTH_TOKEN ?? env.DATABASE_TOKEN ?? env.TURSO_AUTH_TOKEN ?? env.TURSO_DATABASE_AUTH_TOKEN,
   })
   await client.batch(SCHEMA, 'write')
