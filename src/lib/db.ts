@@ -1,6 +1,6 @@
-import 'server-only'
-import { createClient, type Client } from '@libsql/client'
-import bcrypt from 'bcryptjs'
+import "server-only";
+import { createClient, type Client } from "@libsql/client";
+import bcrypt from "bcryptjs";
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS users (
@@ -64,60 +64,58 @@ const SCHEMA = [
     extras TEXT NOT NULL DEFAULT '[]'
   )`,
   `CREATE INDEX IF NOT EXISTS order_items_order ON order_items(order_id)`,
-]
+];
 
-let ready: Promise<Client> | undefined
+let ready: Promise<Client> | undefined;
 
 async function init(): Promise<Client> {
-  // Acepta los nombres que crea la integración de Turso en Vercel además de los propios
-  const env = process.env
-  const url = env.DATABASE_URL ?? env.TURSO_DATABASE_URL ?? 'file:local.db'
-  if (env.VERCEL && url.startsWith('file:')) {
-    throw new Error(
-      'No se encontró la base de datos: falta DATABASE_URL (o TURSO_DATABASE_URL) en las variables de entorno de Vercel. ' +
-        `Variables disponibles relacionadas: ${Object.keys(env).filter((k) => /URL|TOKEN|TURSO|DATABASE|STORAGE/.test(k)).join(', ') || 'ninguna'}`,
-    )
-  }
+  // En Vercel la integración de Turso crea DATABASE_TURSO_DATABASE_URL / DATABASE_TURSO_AUTH_TOKEN
   const client = createClient({
-    url,
-    authToken: env.DATABASE_AUTH_TOKEN ?? env.DATABASE_TOKEN ?? env.TURSO_AUTH_TOKEN ?? env.TURSO_DATABASE_AUTH_TOKEN,
-  })
-  await client.batch(SCHEMA, 'write')
+    url:
+      process.env.DATABASE_TURSO_DATABASE_URL ??
+      process.env.DATABASE_URL ??
+      "file:local.db",
+    authToken:
+      process.env.DATABASE_TURSO_AUTH_TOKEN ?? process.env.DATABASE_AUTH_TOKEN,
+  });
+  await client.batch(SCHEMA, "write");
 
   // Migración de bases creadas antes del sistema de vencimiento y tarjetas
-  const { rows: cols } = await client.execute('PRAGMA table_info(customers)')
-  const has = new Set(cols.map((c) => String(c.name)))
-  if (!has.has('reset_at')) await client.execute('ALTER TABLE customers ADD COLUMN reset_at TEXT')
-  if (!has.has('card_token')) await client.execute('ALTER TABLE customers ADD COLUMN card_token TEXT')
+  const { rows: cols } = await client.execute("PRAGMA table_info(customers)");
+  const has = new Set(cols.map((c) => String(c.name)));
+  if (!has.has("reset_at"))
+    await client.execute("ALTER TABLE customers ADD COLUMN reset_at TEXT");
+  if (!has.has("card_token"))
+    await client.execute("ALTER TABLE customers ADD COLUMN card_token TEXT");
   await client.batch(
     [
-      'UPDATE customers SET card_token = lower(hex(randomblob(12))) WHERE card_token IS NULL',
-      'CREATE UNIQUE INDEX IF NOT EXISTS customers_card_token ON customers(card_token)',
+      "UPDATE customers SET card_token = lower(hex(randomblob(12))) WHERE card_token IS NULL",
+      "CREATE UNIQUE INDEX IF NOT EXISTS customers_card_token ON customers(card_token)",
     ],
-    'write',
-  )
+    "write",
+  );
 
   // Primer arranque: crea el usuario admin desde las variables de entorno.
-  const { rows } = await client.execute('SELECT COUNT(*) AS n FROM users')
+  const { rows } = await client.execute("SELECT COUNT(*) AS n FROM users");
   if (Number(rows[0].n) === 0) {
-    const username = process.env.ADMIN_USERNAME
-    const password = process.env.ADMIN_PASSWORD
+    const username = process.env.ADMIN_USERNAME;
+    const password = process.env.ADMIN_PASSWORD;
     if (username && password) {
       await client.execute({
-        sql: 'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+        sql: "INSERT INTO users (username, password_hash) VALUES (?, ?)",
         args: [username, await bcrypt.hash(password, 10)],
-      })
+      });
     }
   }
-  return client
+  return client;
 }
 
 export function db(): Promise<Client> {
   if (!ready) {
     ready = init().catch((err) => {
-      ready = undefined
-      throw err
-    })
+      ready = undefined;
+      throw err;
+    });
   }
-  return ready
+  return ready;
 }
